@@ -33,7 +33,7 @@ async function main() {
     //
     // Enables JSON body parsing for HTTP requests.
     //
-    app.use(express.json()); 
+    app.use(express.json());
 
     //
     // Connects to the database server.
@@ -43,39 +43,39 @@ async function main() {
     //
     // Gets the database for this microservice.
     //
-    const db  = client.db(DBNAME);
+    const db = client.db(DBNAME);
 
     //
     // Gets the collection for storing video viewing history.
     //
     const historyCollection = db.collection("history");
-    
+
     //
     // Connects to the RabbitMQ server.
     //
-    const messagingConnection = await amqp.connect(RABBIT); 
+    const messagingConnection = await amqp.connect(RABBIT);
 
     //
     // Creates a RabbitMQ messaging channel.
     //
-    const messageChannel = await messagingConnection.createChannel(); 
+    const messageChannel = await messagingConnection.createChannel();
 
     //
     // Asserts that we have a "viewed" exchange.
     //
-    await messageChannel.assertExchange("viewed", "fanout"); 
+    await messageChannel.assertExchange("viewed", "fanout");
 
-	//
-	// Creates an anonyous queue.
-	//
-	const { queue } = await messageChannel.assertQueue("", { exclusive: true }); 
+    //
+    // Creates an anonyous queue.
+    //
+    const { queue } = await messageChannel.assertQueue("", { exclusive: true });
 
     console.log(`Created queue ${queue}, binding it to "viewed" exchange.`);
-    
+
     //
     // Binds the queue to the exchange.
     //
-    await messageChannel.bindQueue(queue, "viewed", ""); 
+    await messageChannel.bindQueue(queue, "viewed", "");
 
     //
     // Start receiving messages from the anonymous queue.
@@ -84,8 +84,8 @@ async function main() {
         console.log("Received a 'viewed' message");
 
         const parsedMsg = JSON.parse(msg.content.toString()); // Parse the JSON message.
-        
-        await historyCollection.insertOne({ videoId: parsedMsg.video.id }); // Record the "view" in the database.
+
+        await historyCollection.insertOne({ videoId: parsedMsg.video.id, watched: new Date() }); // Record the "view" in the database.
 
         console.log("Acknowledging message was handled.");
 
@@ -100,7 +100,7 @@ async function main() {
         // Retreives viewing history from database.
         // In a real application this should be paginated.
         //
-        const history = await historyCollection.find().toArray(); 
+        const history = await historyCollection.find().toArray();
         res.json({ history });
     });
 
